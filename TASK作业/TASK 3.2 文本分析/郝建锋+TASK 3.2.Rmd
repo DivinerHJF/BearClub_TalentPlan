@@ -1,0 +1,114 @@
+---
+title: "Task 3.2 文本分析"
+author: "郝建锋"
+date: "2017年11月10日"
+output:
+  html_document:
+    toc: true
+---
+
+## 任务1：文本读入
+```{r, message=FALSE, warning=FALSE}
+langya <- readLines("D:/Desktop/TASK3.2/琅琊榜.txt")  # 读入文本
+langya[1:10]  # 展示数据集的前10行
+```
+
+## 任务2：分词处理
+```{r, message=FALSE, warning=FALSE}
+library(jiebaR)     # 载入中文分词包
+# 设置路径与分词环境
+USERPATH <- "D:/Desktop/TASK3.2/琅琊榜词库大全.txt"
+STOPPATH <- "D:/Desktop/TASK3.2/stopwords.dat"
+wk <- worker(user=USERPATH,        # 自定义词典
+             stop_word=STOPPATH,   # 停用词词典
+             bylines=T)            # 逐行分词
+# 进行分词
+words <- wk[langya]
+head(words)         # 展示分词结果的前几项
+```
+
+## 任务3：词频统计
+```{r, message=FALSE, warning=FALSE}
+freq <- freq(unlist(words))         # 词频统计
+freq <- freq[nchar(freq$char)>1,]   # 去除字符长度小于2的词根
+freq <- freq[order(-freq$freq),]    # 降序排列
+names(freq) <- c("text","Freq")     # 修改列名
+# 转换类型
+freq$text<-as.factor(freq$text)
+freq$Freq<-as.integer(freq$Freq)
+str(freq)       # 查看数据集结构
+freq[1:6,]      # 查看数据集前六行
+```
+可以看出身为主角的梅长苏出场率极高，近乎到达了第二名靖王的三倍，但需要注意的是某一个人物可能有不同称谓，所以此时的词频数据还不能准确的说明各个人物的出场频数，本文进行进一步的探究。
+
+## 任务4：绘制主要人物出场频次柱形图
+对于某一个人物要统计他不同称谓，例如梅长苏就有好几种叫法，比如苏哲、小殊、林殊等等说法。本文先将不同主角出场次数分别进行统计，再合成数据框，这样设计有助于以后的修改，也利于阅读与理解。
+```{r, message=FALSE, warning=FALSE}
+# 梅长苏出场频率
+nam_1 <- c("梅长苏","小苏","小殊","苏兄","苏先生","少帅","林殊","苏哲",
+           "赤焰少帅","江左梅郎","琅琊榜首","麒麟才子","江左盟宗主")
+sum_1 <- sum(table(unlist(words))[nam_1])
+
+# 景琰出场频率
+nam_2 <- c("景琰","萧景琰","水牛","靖王殿下","殿下","靖王")
+sum_2 <- sum(table(unlist(words))[nam_2])
+
+# 景睿出场频率
+nam_3 <- c("景睿","萧景睿","小睿","睿儿")
+sum_3 <- sum(table(unlist(words))[nam_3])
+
+# 誉王出场频率
+nam_4 <- c("誉王","萧景桓")
+sum_4 <- sum(table(unlist(words))[nam_4])
+
+# 飞流出场频率
+nam_5 <- c("飞流")
+sum_5 <- sum(table(unlist(words))[nam_5])
+
+# 蒙挚出场频率
+nam_6 <- c("蒙挚","蒙大统领","蒙大哥")
+sum_6 <- sum(table(unlist(words))[nam_6])
+
+# 霓凰出场频率
+nam_7 <- c("霓凰","霓凰郡主","霓凰姐姐")
+sum_7 <- sum(table(unlist(words))[nam_7])
+
+# 合成数据框
+name <- c("梅长苏","景琰","景睿","誉王","飞流","蒙挚","霓凰")
+sum  <- c(sum_1,sum_2,sum_3,sum_4,sum_5,sum_6,sum_7)
+leading_role <- data.frame(
+  姓名 = name,
+  频数 = sum
+)
+```
+
+然后对主要人物出场频次柱形图进行绘制：
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)   # 载入可视化包
+# 绘制柱形图
+ggplot(leading_role, aes(x=姓名,y=频数,fill=姓名)) +
+  geom_bar(stat="identity") +
+  scale_x_discrete(limits=name) +     # 修改x轴刻度标签顺序
+  # 修饰图片主题
+  theme(
+    # 修饰y轴标签
+    axis.title.y=element_text(        
+      size=rel(1.5),family="Helvetica",face="bold"),
+    # 修饰坐标轴刻度标签
+    axis.text=element_text(
+      family="Helvetica",face="bold",,size=rel(1.25)),
+    # 移除x轴标签
+    axis.title.x=element_blank()) +
+  # 移除图例
+  guides(fill=F)
+```
+
+可以从图中看出，就全书来看梅长苏力压群雄，出场率最高；紧接其后的是景琰、景睿；最为为数不多的女性主要角色——霓凰的出场率较男演员们明显差一大截，看来琅琊榜中政治斗争中多是男人的戏码啊。
+
+## 任务5：绘制词云
+```{r, include=FALSE}
+write.table (freq, file ="freq.csv",row.names=F,quote=F)
+```
+![](wordcloud.png)
+
+

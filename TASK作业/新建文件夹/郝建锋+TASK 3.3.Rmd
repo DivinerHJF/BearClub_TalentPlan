@@ -1,0 +1,180 @@
+---
+title: "TASK 3.3 多元统计分析"
+author: "郝建锋"
+date: "2017年11月19日"
+output:
+  html_document:
+    toc: true
+---
+
+## 任务1：载入数据
+```{r, message=FALSE, warning=FALSE}
+# 载入数据
+mydata <- read.csv("D:/Desktop/TASK 3.3/data.csv")
+summary(mydata)    # 检查数据
+```
+本数据集收集了包括了8辆车在内的754段路程的信息。通过上表可以看出共有14个评价指标，均为连续型。主要从以下五个维度的驾驶情况进行描述
+
+* 时间维度（行驶时长、疲劳驾驶、早晚高峰、深夜出行）;
+* 速度维度（平均时速、最大时速、速度标准差、极度拥堵、高速驾驶）;
+* 机械性能（平均引擎转速、最大引擎转速、转速标准差）;
+* 里程维度（行驶里程）;
+* 平稳性  
+下面本文借助箱线图对比每辆车的行驶里程数以及平均时速。
+
+## 任务2：箱线图分析
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)                           # 载入可视化包
+windowsFonts( A=windowsFont("华文中宋") )  # 设置系统字体
+
+op<-par(no.readonly=TRUE)                  # 保存默认设置
+par(mfrow=c(1,2),family="A")               # 设置画布
+# 绘制每段路程的对数行驶里程箱线图
+boxplot(log(行驶里程)~factor(车号), data=mydata,
+        xlab="车号",ylab="对数行驶里程",
+        col="grey")
+# 绘制每段路程的平均时速箱线图
+boxplot(平均时速~factor(车号), data=mydata,
+        xlab="车号", ylab="平均时速（千米/小时）",
+        col="grey")
+```
+
+从上图可以看出，以1号和3号车为例（也就是每组图的第1个和第3个箱子）：
+
+* 1号车的平均行驶里程比3号车更短；
+* 1号车的行驶里程的分布在一定程度上（箱子宽度）更加分散；
+* 3号车的平均时速的平均水平（以中位数计）比1号车更高；
+* 3号车的平均时速的分布在一定程度上（箱子宽度）比3号车更加分散。
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+par(op)                                    # 重置为默认设置
+```
+
+
+## 任务3：因子分析I
+```{r, message=FALSE, warning=FALSE}
+library(psych)            # 载入因子分析包
+library(mvstats)          # 为利用factpc函数，得到因子分析的结果
+pc_4 <- factpc(mydata[,-15], m=4, rotation="varimax")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+pc_4$Vars
+a <- cbind(pc_4$loadings,pc_4$common)
+round(a,3)
+```
+
+保留四个公因子的结果如上所示：
+模型的累积方差贡献率为76.37%，比较优良，能解释大部分变量。
+从四个公因子与14个初始变量的系数关系，本文为这四个公因子命名以及各个因子包含指标分别为：  
+
+* **Factor1：行驶速度**（平均时速、时速标准差、时速最大值、转速平均值、极度拥堵、平稳性），该因子得分高说明行驶速度大且较为平稳  
+* **Factor2：驾驶强度**（行驶里程、行驶时长、高速行驶、疲劳驾驶），该因子得分高说明驾驶时间长且路程远，疲劳驾驶可能性大  
+* **Factor3：引擎情况**（转速标准差、转速最大值），该因子得分高说明引擎转速高  
+* **Factor4：出行时间**（早晚高峰、深夜出行），该因子得分高说明是深夜出行、非早晚高峰。
+
+```{r, message=FALSE, warning=FALSE}
+# 提取公因子得分情况
+scores <- as.data.frame(pc_4$scores)
+names(scores) <- c("行驶速度","驾驶强度","引擎情况","出行时间")
+```
+
+
+## 任务4：因子分析II
+```{r, message=FALSE, warning=FALSE}
+fa.parallel(mydata[,-15], fa="pc", n.iter=100,
+            show.legend = F)
+abline(h=1)
+```
+
+从图中可以看出，对于碎石检验结果、特征值大于1准则（水平线）以及100次模拟的的平行分析（虚线）结果表明保留三个公因子是较好的选择。
+
+## 任务5：聚类分析
+现在本文对所有的行程进行聚类，聚类的指标是任务三得到的几个因子得分，采取PAM（围绕中心点的划分）方法进行划分聚类，这种方法比基于均值的K均值聚类法要稳健，不易受异常值的影响。
+```{r, message=FALSE, warning=FALSE}
+# 聚类分析
+library(fpc)         # PAM法确定聚类数目
+library(cluster)     # 可视化聚类结果
+# 确定最佳聚类数目
+pamk.best <- pamk(scores)
+pamk.best$nc
+```
+
+根据运行结果，本组数据的最优聚类数目为7，本文基于此对公因子得分进行PAM聚类：
+```{r, message=FALSE, warning=FALSE}
+# 进行PAM聚类
+fit_pam <- pam(scores, 7, stand=T)
+
+# 输出聚类结果
+num <- table(fit_pam$clustering)
+medoids <- cbind(类中心=fit_pam$id.med,fit_pam$medoids,样本量=num)
+medoids
+```
+从输出结果可以看到每一类别的类中心以及样本量，根据输出结果可以对每一类行程所代表的驾驶习惯解读如下：  
+**参考表：**
+
+|变量名|解读|
+| :------: | :------ |
+|行驶速度|该因子得分高说明行驶速度大且较为平稳  |
+|驾驶强度|疲劳驾驶可能性大  |
+|引擎情况|该因子得分高说明引擎转速高  |
+|出行时间|该因子得分高说明是深夜出行、非早晚高峰|
+
+**聚类解读：**
+
+* 第1类行程：低速慢行
+* 第2类行程：深夜低速
+* 第3类行程：高峰/白日
+* 第4类行程：高速远途
+* 第5类行程：中速行驶
+* 第6类行程：白日高速
+* 第7类行程：深夜中速短途
+
+```{r, message=FALSE, warning=FALSE}
+# 可视化聚类结果
+clusplot(fit_pam,main="Bivariate Cluster Plot")
+```
+
+根据上图可以看到较多类别重合现象严重，这说明本文的因子选择可能不太合适，典型性不足，相关性还是较高。
+
+## 任务6：驾驶行为
+本文用雷达图来展现八辆车的驾驶行为：
+```{r, message=FALSE, warning=FALSE}
+library(fmsb)                 # 为绘制雷达图载入fmsb包
+# 创建绘制雷达图的数据集
+maxmin <- data.frame(
+  "低速慢行"=c(35, 0),
+  "深夜低速"=c(50, 0),
+  "高峰/白日"=c(50, 0),
+  "高速远途"=c(35, 0),
+  "中速行驶"=c(50, 0),
+  "白日高速"=c(35, 0),
+  "深夜中速短途"=c(35,0))     
+# 注意虽有三项最大值设定为50，但本文已确认不影响最终解读
+t <- table(车号=mydata$车号,类别=fit_pam$clustering)
+t <- as.data.frame(t)
+
+par(mar = c(1,0,1,0),mfrow = c(3,3))
+# 绘制雷达图
+for(i in 1:8){
+  radarchart(rbind(maxmin,t[t$车号==i,]$Freq),
+             seg=5, pty=32, plty=1, plwd=3,              # 设置线条格式
+             pcol=rgb(253,124,187,alpha=200,max=255),    # 调整线条颜色
+             pfcol=rgb(253,168,210,alpha=200,max=255),   # 调整填充色
+             cglty=1, cglcol="grey",                     # 设置背景图格式
+             centerzero = TRUE,                          # 中心点为最小值点
+             vlcex=.9,title=paste(i,"号车"))
+}  
+```
+
+从上面8张雷达图可以很明显的看出不同车主的驾驶行为：
+
+* 1号车主：常保持低速慢行，远途出行频率较其他车主高；
+* 2号车主：常在深夜中速行驶，远途出行频率较其他车主高，易疲劳驾驶；
+* 3号车主：明显呈现白日高速行驶，深夜低速行驶，推测为远离郊区的上班族；
+* 4号车主：白日深夜均中速行驶，推测不住在拥堵城区；
+* 5号车主：驾驶行为较为正常，无极端偏好；
+* 6号车主：常保持低速行驶，经历早晚高峰，推测为居住地拥堵城区上班族；
+* 7号车主：常保持低速行驶，经历早晚高峰，推测为居住地拥堵城区上班族；
+* 8号车主：常保持低速行驶，常经历早高峰，推测为居住地拥堵城区上班族；
+

@@ -1,0 +1,184 @@
+---
+title: "Task 2.4"
+author: "郝建锋"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+---
+
+##任务一：数据读入与检查
+```{r, message = FALSE, warning=FALSE}
+# 读入数据
+data_before <- read.csv("D:/Desktop/TASK 2.4/data/score_before_meeting.csv")
+data_while <- read.csv("D:/Desktop/TASK 2.4/data/score_while_meeting.csv")
+# 修改数据集变量名
+names(data_before)[1:6] <- c("吸引力偏好","真诚偏好","智力偏好",
+                           "幽默偏好","雄心偏好","爱好偏好")
+names(data_while)[1:13] <- c("吸引力打分","真诚打分","智力打分",
+                           "幽默打分","雄心打分","共同爱好打分",
+                           "吸引力得分","真诚得分","智力得分",
+                           "幽默得分","雄心得分","共同爱好得分","决定")
+# 查看数据概况
+summary(data_before)
+```
+此数据集中包含了在相亲前女性对于自己心仪男性在多个方面的评分。具体变量情况如下表所示：
+
+| 变量名称  | 取值范围|
+| :-----:   | :-----: |
+| 吸引力偏好| 0—90 |
+| 真诚偏好  | 0—60 |
+| 智力偏好  | 0—50 |
+| 幽默偏好  | 0—40 |
+| 雄心偏好  | 0—30 |
+| 爱好偏好  | 0—30 |
+
+后续本文将就此数据集数据绘制雷达图，可视化女性对心仪对象的特质需求。
+
+```{r, message=FALSE, warning=FALSE}
+summary(data_while)
+```
+此数据集中包含相亲后女性对约会男性的各特质打分分值、女性各特质得分情况以及女性是否决定继续接触。  
+其中打分以及得分分值由0到10；决定是否继续接触为0—1型变量，可以看到此变量中位数为0，平均数为0.3738，说明多数女性对约会对象并不满意，决定不再继续接触。  
+在本文后续分析中将根据此数据集建立逻辑回归、决策树以及随机森林模型。
+
+
+##任务二：绘制雷达图
+在数据集data_before中包含了在相亲前女性对于自己心仪男性在吸引力，爱好，雄心，幽默感，智力，真诚这六个方面的评分，本文将绘制雷达图进行展示。
+```{r, message = FALSE, warning=FALSE}
+library(fmsb)                 # 为绘制雷达图载入fmsb包
+# 创建绘制雷达图的数据集
+maxmin <- data.frame(
+    "吸引力偏好"=c(35, 0),
+    "真诚偏好"=c(35, 0),
+    "智力偏好"=c(35, 0),
+    "幽默偏好"=c(35, 0),
+    "雄心偏好"=c(35, 0),
+    "爱好偏好"=c(35, 0))
+a <- as.data.frame(lapply(data_before,mean))
+b <- rbind(maxmin,a)
+# 绘制雷达图
+radarchart(b, seg=5, pty=32, plty=1, plwd=3,           # 设置线条格式
+           pcol=rgb(253,124,187,alpha=200,max=255),    # 调整线条颜色
+           pfcol=rgb(253,168,210,alpha=200,max=255),   # 调整填充色
+           cglty=1, cglcol="grey",                     # 设置背景图格式
+           centerzero = TRUE)                          # 中心点为最小值点
+```
+
+从图中可以看到，女性更加喜爱全面发展的男性，稍稍对智力好的聪明男性青睐有加，同时真诚、幽默、吸引力等暖男特质也会为相亲成功的这侧天平添上砝码。相较而言，女性不太看重男性的爱好以及雄心属性，这说明女性朋友还是更希望有个暖心爱护自己的聪明男友啊。
+
+##任务三：逻辑回归模型
+```{r, message = FALSE, warning=FALSE}
+set.seed(1234)    # 设置随机种子，让模型结果可重复出现
+library(pROC)     # 载入pROC包绘制ROC曲线
+
+# 建立逻辑回归模型
+My_lg <- glm(决定 ~ ., family=binomial(link="logit"), 
+                data = data_while)
+summary(My_lg)    # 检查模型结果
+```
+从模型结果可以看出，在0.05的显著性水平下，通过显著性检验的因素有吸引力打分、智力打分、幽默打分、雄心打分、共同爱好打分、吸引力得分和真诚得分。  
+从上述变量回归系数的正负性可以得出以下结论：在控制其他因素不变的情况下，  
+
+* 女性对男性雄心打分值越高，越可能被女性拒绝；
+* 女性的吸引力得分越高，越倾向于拒绝约会男性；
+* 女性对男性幽默打分越高，越可能接受与男性继续接触。
+
+其他变量也可根据回归系数的正负得出类似结论。
+
+接下来我们用逻辑回归模型做预测，并输出ROC曲线进行模型评价。
+```{r, message=FALSE, warning=FALSE}
+# 逻辑回归模型做预测
+lg_predict <- predict.glm(My_lg,data_while,type="response")
+
+# 绘制逻辑回归模型ROC曲线
+lg_roc <- roc(as.numeric(data_while$决定) ,as.numeric(lg_predict))
+plot(lg_roc, print.auc=TRUE, auc.polygon=TRUE,legacy.axes=TRUE,
+     grid=c(0.1, 0.2),
+     grid.col=c("green", "red"), max.auc.polygon=TRUE,
+     auc.polygon.col="skyblue", print.thres=TRUE,
+     # 调节标题及坐标轴
+     main = "逻辑回归结果",
+     xlab = "特异度", ylab = "灵敏度",
+     xaxt="n")
+# 调整坐标轴刻度
+axis(side=1,at=c(1,0.5,0),labels=c(1,'0.5',0))
+```
+
+ROC曲线是光滑的，基本可以判断没有太大的过拟合现象，AUC=0.811，说明模型准确度较高。
+
+##任务四：决策树模型
+```{r, message = FALSE, warning=FALSE}
+library(rpart)            # 载入rpart包进行决策树建模
+library(rattle)           # 决策树结果可视化包
+
+# 建立决策树模型
+My_rpart <- rpart(决定 ~ ., data = data_while,method='class')
+fancyRpartPlot(My_rpart,sub=NA,
+               main="女性的相亲决策：决策树的规则")  # 可视化模型结果
+```
+
+模型输出结果为二叉树，输出型式非常人性化，我们可以轻松解读模型内涵。  
+举个例子：模型首先判断吸引力打分，如果低于6.8，则女性决定不再继续接触；如果大于等于6.8则再根据共同爱好评分判断……模型的解读大体如是。  
+  
+接下来我们用决策树模型做预测，并输出ROC曲线进行模型评价。
+```{r, message=FALSE, warning=FALSE}
+# 决策树模型做预测
+rpart_predict <- predict(My_rpart,data_while,type="prob")
+
+# 绘制决策树模型ROC曲线
+rpart_roc <- roc(as.numeric(data_while$决定) 
+                 ,as.numeric(rpart_predict[,2]))
+plot(rpart_roc, print.auc=TRUE, auc.polygon=TRUE,legacy.axes=TRUE,
+     grid=c(0.1, 0.2),   
+     grid.col=c("green", "red"), max.auc.polygon=TRUE,  
+     auc.polygon.col="skyblue", print.thres=TRUE,
+     # 调节标题及坐标轴
+     main = "决策树结果",
+     xlab = "特异度", ylab = "灵敏度",
+     xaxt="n")
+# 调整坐标轴刻度
+axis(side=1,at=c(1,0.5,0),labels=c(1,'0.5',0))
+```
+
+由曲线形状可知模型存在过拟合问题；AUC值接近0.75，说明模型准确性不如逻辑回归，这是一个还可以接受的模型，但若实际应用最好进行进一步优化。
+
+##任务五：随机森林模型
+```{r, message = FALSE, warning=FALSE}
+library(randomForest)          # 载入随机森林包
+
+# 划分训练集与测试集
+sub<-sample(1:nrow(data_while),round(nrow(data_while)*2/3))
+length(sub)
+data_train<-data_while[sub,]   # 取2/3的数据做训练集
+data_test<-data_while[-sub,]   # 取1/3的数据做测试集
+
+# 建立随机森林模型
+My_rf <- randomForest(as.factor(决定) ~ ., data = data_train, importance=T)
+varImpPlot(My_rf,
+           main="女性的相亲决策：随机森林变量重要性") # 变量重要性可视化
+importance(My_rf)       # 变量重要性文本输出
+```
+可以看到，吸引力、幽默和共同爱好的打分对女性相亲决策的有重要影响，看来广大男同胞要在这三方面努力提升自身了。
+
+接下来我们用随机森林模型做预测，并输出ROC曲线进行模型评价。
+```{r, message=FALSE, warning=FALSE}
+# 随机森林模型做预测
+rf_predict <- predict(My_rf,data_test,type="prob")
+
+# 绘制随机森林模型ROC曲线
+rf_roc <- roc(as.numeric(data_test$决定) 
+              ,as.numeric(as.character(rf_predict[,2])))
+plot(rf_roc, print.auc=TRUE, auc.polygon=TRUE,legacy.axes=TRUE,
+     grid=c(0.1, 0.2),
+     grid.col=c("green", "red"), max.auc.polygon=TRUE,  
+     auc.polygon.col="skyblue", print.thres=TRUE,
+     # 调节标题及坐标轴
+     main = "随机森林结果",
+     xlab = "特异度", ylab = "灵敏度",
+     xaxt="n")
+# 调整坐标轴刻度
+axis(side=1,at=c(1,0.5,0),labels=c(1,'0.5',0))
+```
+
+ROC曲线是光滑的，基本可以判断没有太大的过拟合现象；AUC=0.802，说明模型准确度较高。

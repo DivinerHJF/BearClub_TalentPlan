@@ -1,0 +1,5 @@
+R--线性回归诊断（一）
+http://www.cnblogs.com/runner-ljt/p/4581622.html
+
+R--线性回归诊断（二）
+http://www.cnblogs.com/runner-ljt/p/4583804.html

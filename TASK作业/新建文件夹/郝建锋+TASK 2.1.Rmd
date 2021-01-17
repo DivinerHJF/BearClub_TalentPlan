@@ -1,0 +1,113 @@
+---
+title: "Task 2.1 R语言的基础练习"
+author: "郝建锋"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+---
+
+
+# 任务一
+## 载入所需包
+```{r, message = FALSE, warning=FALSE}
+library('ggplot2')      # 可视化包
+library('ggmap')        # 地图绘制包
+library('baidumap')     # 获取百度地图API服务
+```
+
+## 载入并检查数据
+```{r, message=FALSE, warning=FALSE}
+dat0 <- read.csv('D:/Desktop/TASK 2.1 数据.csv', stringsAsFactors=F)
+summary(dat0)           # 检查数据
+```
+本数据集第一列表示行政区，属于字符型变量，包括西城，东城，海淀，朝阳，丰台，石景山五个地区；第二列代表房子面积；第三列代表是否是学区房，其中**“是”用1表示**，**“否”用0表示**；第四列为单价；剩余两列分别为二手房的经纬度。
+
+
+# 任务二
+## 数据清洗
+```{r, message=FALSE, warning=FALSE}
+# 删掉面积500以上和单价十五万以上的观测
+dat1 <- dat0[which(dat0$AREA<=500 & dat0$price<=150000),]
+```
+
+## 绘制北京二手房单价直方图
+```{r, message=FALSE, warning=FALSE}
+# 绘制直方图
+ggplot(dat1, aes(x=price)) + 
+  geom_histogram() + 
+  xlab("单价") + ylab("频数") +             # 修改坐标轴标签
+  ggtitle("北京二手房单价直方图")           # 添加标题
+```
+
+从图中可以看出单价在五万元左右的北京二手房最多，单价三万到十万的二手房占全部房源的80%以上，帝都房价之高可见一般。
+
+# 任务三
+## 绘制北京各城区二手房单价箱线图
+```{r, message=FALSE, warning=FALSE}
+# 为调整x轴刻度标签做准备
+order_CATE <- c("xicheng","dongcheng",
+                "haidian","chaoyang",
+                "fengtai","shijingshan")      # 为X轴因子顺序调节做准备
+Chinese_order <- c("西城","东城","海淀",
+                   "朝阳","丰台","石景山")    # 为刻度标签中文显示做准备
+# 绘制箱线图
+ggplot(dat1,aes(x=factor(CATE),y=price,fill=factor(school))) +
+  geom_boxplot() +
+  # 坐标轴修饰
+  scale_x_discrete(limits=order_CATE,
+                   labels=Chinese_order) +    # 调整X轴刻度标签
+  xlab("城区") + ylab("单价（元）") +         # 更换坐标轴标签
+  # 图例修饰
+  labs(fill="学区房") +
+  scale_fill_discrete(labels=c("否","是")) +
+  # 添加标题
+  ggtitle("北京各城区二手房单价箱线图")       
+```
+
+从上图箱线图可得出两个结论，对所有城区而言，学区房单价普遍高于非学区房；就北京各城区而言，各城区二手房单价由高到低排序为：西城>东城>海淀>朝阳>丰台>石景山，基本与和城中心的距离成反比——距城中心越近，房价越高。
+
+# 任务四
+## 地图上绘制出二手房的位置
+```{r, echo=FALSE}
+options(baidumap.key = 'DVFEOjsuvxfm2DpLqXbpOKrnNo8Vjakz')
+```
+
+```{r, message=FALSE, warning=FALSE}
+ggmap(getBaiduMap('北京',color="bw")) +       # 导入北京市地图
+  # 绘制散点图图层
+  geom_point(data=dat1,
+             aes(x=LONG,y=LAT,
+                 colour=factor(school))) +    # 将school变量映射到填充
+  # 移除坐标轴标签
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank()) +
+  # 图例修饰
+  labs(colour="学区房") +
+  scale_color_discrete(labels=c("否","是")) +
+  # 添加标题
+  ggtitle("北京二手房学区房与非学区房位置")   
+```
+
+在本图中，绿色点代表是学区房，红色点代表不是学区房。由图可以看出，学区房主要分布于城市内维，城市外围学区房较少，这与学校在城市中的分布有关。
+
+# 任务五
+## 地图上展示北京二手房单价
+```{r, message=FALSE, warning=FALSE}
+ggmap(getBaiduMap('北京', color="bw")) +      # 导入北京市地图
+  # 绘制热力图图层
+  geom_tile(data=dat1,aes(x=round(LONG,2),
+                          y=round(LAT,2),
+                          fill=price),alpha=.2) +
+  # 移除坐标轴标签
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank()) +
+  # 图例修饰
+  labs(fill="价格（元）") +                   
+  scale_fill_gradient(low="green",
+                      high="red") +         #设置低价为绿色，高价为红色
+  ggtitle("北京二手房单价")                 # 添加标题
+```
+
+上图是二手房的价格的热力图在北京市地图中的展示，其中高价为红色，低价为绿色，可以明显的看到，红色区域较少且集中于市中心位置，这也与我们的认知相符。

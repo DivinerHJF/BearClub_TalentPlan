@@ -1,0 +1,16 @@
+使用 R 语言挖掘 QQ 群聊天记录
+http://www.cnblogs.com/NaughtyBaby/p/5497714.html
+https://www.r-bloggers.com/lang/chinese/1190
+
+R数据挖掘：一、QQ聊天记录
+http://blog.sina.com.cn/s/blog_ec9e85e20102vwl7.html
+
+formatR代码自动化排版
+https://zhuanlan.zhihu.com/p/25621341
+
+R语言如何画个性化词云图
+https://zhuanlan.zhihu.com/p/25163990
+
+R语言分析《釜山行》人物关系
+https://zhuanlan.zhihu.com/p/26104216
+
